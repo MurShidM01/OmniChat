@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="start"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="36dp"
+    android:paddingBottom="6dp">
+
+    <!-- Assistant Header: Avatar + Model Name + Status Pill -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/iv_assistant_avatar"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_robot"
+            app:tint="@color/brand_primary" />
+
+        <TextView
+            android:id="@+id/tv_assistant_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="AI Assistant"
+            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:textStyle="bold" />
+
+        <!-- Latency & Token Badge in Header -->
+        <TextView
+            android:id="@+id/tv_metrics"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_badge_model"
+            android:paddingStart="6dp"
+            android:paddingTop="1dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="1dp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <!-- Collapsible Reasoning / Thinking Box -->
+    <LinearLayout
+        android:id="@+id/card_thinking"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_think_box"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:visibility="gone">
+
+        <!-- Thinking Header (Clickable toggle) -->
+        <LinearLayout
+            android:id="@+id/header_thinking"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_brain"
+                app:tint="@color/brand_accent" />
+
+            <TextView
+                android:id="@+id/tv_thinking_header"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="Thinking Process"
+                android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+                android:textColor="@color/brand_accent"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/iv_thinking_chevron"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_chevron_down"
+                app:tint="@color/brand_accent" />
+
+        </LinearLayout>
+
+        <!-- Thinking Content -->
+        <TextView
+            android:id="@+id/tv_thinking_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <!-- Main Assistant Bubble -->
+    <LinearLayout
+        android:id="@+id/bubble_assistant"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_assistant_bubble"
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:id="@+id/tv_content"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="3dp"
+            android:textIsSelectable="true"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="15sp" />
+
+        <!-- Streaming Indicator -->
+        <ProgressBar
+            android:id="@+id/progress_streaming"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="6dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <!-- Error Banner (if error occurred) -->
+    <LinearLayout
+        android:id="@+id/layout_error"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_pill_amber"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_error"
+            app:tint="@color/brand_rose" />
+
+        <TextView
+            android:id="@+id/tv_error_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:textColor="@color/brand_rose"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
+    <!-- Action Buttons Bar -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btn_copy"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Copy Response"
+            android:src="@drawable/ic_copy"
+            app:tint="?attr/colorOnSurfaceVariant" />
+
+        <ImageButton
+            android:id="@+id/btn_delete"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Delete Message"
+            android:src="@drawable/ic_delete"
+            app:tint="?attr/colorOnSurfaceVariant" />
+
+    </LinearLayout>
+
+</LinearLayout>

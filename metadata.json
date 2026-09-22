@@ -1,0 +1,6 @@
+{
+  "name": "OmniChat",
+  "description": "Production-grade native Android AI chat application with customizable providers, streaming, model discovery, and encrypted key storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

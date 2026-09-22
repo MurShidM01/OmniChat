@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="60dp"
+    android:layout_height="60dp"
+    android:layout_marginEnd="8dp">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/iv_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Attachment Preview"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small" />
+
+    <ImageButton
+        android:id="@+id/btn_remove"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="2dp"
+        android:background="@drawable/bg_badge_model"
+        android:contentDescription="Remove Attachment"
+        android:src="@drawable/ic_close"
+        app:tint="?attr/colorOnSurface" />
+
+</FrameLayout>

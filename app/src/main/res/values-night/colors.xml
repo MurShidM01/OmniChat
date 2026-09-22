@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Mode Status Badges (Tailwind Dark Palette) -->
+    <color name="status_green_bg">#064E3B</color>
+    <color name="status_green_text">#6EE7B7</color>
+    <color name="status_green_border">#047857</color>
+
+    <color name="status_amber_bg">#451A03</color>
+    <color name="status_amber_text">#FCD34D</color>
+    <color name="status_amber_border">#B45309</color>
+
+    <color name="status_blue_bg">#172554</color>
+    <color name="status_blue_text">#93C5FD</color>
+    <color name="status_blue_border">#1E40AF</color>
+
+    <!-- Brand icon background containers in dark mode -->
+    <color name="brand_openai_bg">#064E3B</color>
+    <color name="brand_anthropic_bg">#451A03</color>
+    <color name="brand_deepseek_bg">#172554</color>
+    <color name="brand_gemini_bg">#2E1065</color>
+</resources>
