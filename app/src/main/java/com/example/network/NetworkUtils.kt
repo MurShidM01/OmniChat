@@ -58,6 +58,9 @@ object NetworkUtils {
                     val headerName = if (provider.customAuthHeader.isNotBlank()) provider.customAuthHeader else "Authorization"
                     builder.header(headerName, decryptedApiKey)
                 }
+                AuthType.NONE -> {
+                    // No authentication header needed
+                }
             }
         }
 

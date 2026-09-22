@@ -5,12 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.OmniChatApplication
 import com.example.data.model.ModelEntity
+import com.example.data.model.ProviderEntity
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 enum class ModelFilter {
     ALL,
     FAVORITES,
+    CUSTOM,
     VISION,
     REASONING,
     TOOLS
@@ -21,6 +23,9 @@ class ModelsViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = (application as OmniChatApplication).repository
 
     val rawModels: StateFlow<List<ModelEntity>> = repository.allModels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allProviders: StateFlow<List<ProviderEntity>> = repository.allProviders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val searchQuery = MutableStateFlow("")
@@ -42,6 +47,7 @@ class ModelsViewModel(application: Application) : AndroidViewModel(application) 
             val matchesFilter = when (filter) {
                 ModelFilter.ALL -> true
                 ModelFilter.FAVORITES -> model.isFavorite
+                ModelFilter.CUSTOM -> model.isCustom
                 ModelFilter.VISION -> model.supportsVision
                 ModelFilter.REASONING -> model.supportsReasoning
                 ModelFilter.TOOLS -> model.supportsToolCalling

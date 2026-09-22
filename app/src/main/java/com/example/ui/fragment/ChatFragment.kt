@@ -1,6 +1,5 @@
 package com.example.ui.fragment
 
-import android.app.AlertDialog
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -9,7 +8,6 @@ import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -21,12 +19,15 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.MainActivity
 import com.example.R
 import com.example.data.model.Attachment
+import com.example.data.model.AuthType
 import com.example.data.presets.ProviderPreset
 import com.example.databinding.FragmentChatBinding
 import com.example.ui.adapter.AttachmentAdapter
 import com.example.ui.adapter.MessageAdapter
+import com.example.ui.util.ModernModalHelper
 import com.example.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -95,20 +96,27 @@ class ChatFragment : Fragment() {
             if (chatViewModel.isGenerating.value) {
                 chatViewModel.stopGeneration()
             } else {
-                val activeProvider = chatViewModel.activeProvider.value
-                val hasKey = activeProvider?.encryptedApiKey?.isNotBlank() == true
-                if (!hasKey) {
-                    Toast.makeText(
-                        requireContext(),
-                        "Please configure your API key for ${activeProvider?.name ?: "active provider"} first.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    (activity as? MainActivity)?.switchToProvidersTab()
-                    return@setOnClickListener
-                }
-
                 val text = binding.etMessage.text.toString()
                 if (text.isNotBlank() || chatViewModel.attachments.value.isNotEmpty()) {
+                    val activeProvider = chatViewModel.activeProvider.value
+                    val requiresKey = activeProvider?.authType != AuthType.NONE
+                    val hasKey = !requiresKey || activeProvider?.encryptedApiKey?.isNotBlank() == true
+
+                    if (!hasKey) {
+                        ModernModalHelper.showModal(
+                            context = requireContext(),
+                            title = "API Key Required",
+                            message = "Please configure your API key for ${activeProvider?.name ?: "active provider"} in the Providers tab to start chatting.",
+                            type = ModernModalHelper.ModalType.WARNING,
+                            positiveButtonText = "Configure Key",
+                            negativeButtonText = "Cancel",
+                            onPositiveClick = {
+                                (activity as? MainActivity)?.switchToProvidersTab()
+                            }
+                        )
+                        return@setOnClickListener
+                    }
+
                     chatViewModel.sendMessage(text)
                     binding.etMessage.setText("")
                 }
@@ -147,14 +155,21 @@ class ChatFragment : Fragment() {
 
     private fun sendMessageOrPromptKey(text: String) {
         val activeProvider = chatViewModel.activeProvider.value
-        val hasKey = activeProvider?.encryptedApiKey?.isNotBlank() == true
+        val requiresKey = activeProvider?.authType != AuthType.NONE
+        val hasKey = !requiresKey || activeProvider?.encryptedApiKey?.isNotBlank() == true
+
         if (!hasKey) {
-            Toast.makeText(
-                requireContext(),
-                "Please configure your API key for ${activeProvider?.name ?: "active provider"} first.",
-                Toast.LENGTH_LONG
-            ).show()
-            (activity as? MainActivity)?.switchToProvidersTab()
+            ModernModalHelper.showModal(
+                context = requireContext(),
+                title = "API Key Required",
+                message = "Please configure your API key for ${activeProvider?.name ?: "active provider"} in the Providers tab to start chatting.",
+                type = ModernModalHelper.ModalType.WARNING,
+                positiveButtonText = "Configure Key",
+                negativeButtonText = "Cancel",
+                onPositiveClick = {
+                    (activity as? MainActivity)?.switchToProvidersTab()
+                }
+            )
         } else {
             chatViewModel.sendMessage(text)
         }
@@ -197,7 +212,7 @@ class ChatFragment : Fragment() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
+                    ModernModalHelper.showSnackbar(binding.root, "Failed to load image", isSuccess = false)
                 }
             }
         }
@@ -237,8 +252,9 @@ class ChatFragment : Fragment() {
                 }
 
                 launch {
-                    chatViewModel.activeModel.collect { model ->
-                        val provider = chatViewModel.activeProvider.value
+                    combine(chatViewModel.activeProvider, chatViewModel.activeModel) { provider, model ->
+                        Pair(provider, model)
+                    }.collect { (provider, model) ->
                         val modelName = model?.displayName ?: "GPT-4o"
                         val providerName = provider?.name ?: "OpenAI"
                         binding.tvActiveModelPill.text = "⚡ $modelName • $providerName"
@@ -251,13 +267,10 @@ class ChatFragment : Fragment() {
                             else -> R.drawable.ic_sparkle
                         }
                         binding.ivEmptyBrandIcon.setImageResource(brandIcon)
-                    }
-                }
 
-                launch {
-                    chatViewModel.activeProvider.collect { provider ->
                         if (provider != null) {
-                            val hasKey = provider.encryptedApiKey.isNotBlank()
+                            val requiresKey = provider.authType != AuthType.NONE
+                            val hasKey = !requiresKey || provider.encryptedApiKey.isNotBlank()
                             binding.cardMissingKey.visibility = if (hasKey) View.GONE else View.VISIBLE
                             binding.tvMissingKeyTitle.text = "⚠️ ${provider.name} API Key Missing"
                             binding.tvMissingKeySubtitle.text = "Add your official ${provider.name} key to start chatting"

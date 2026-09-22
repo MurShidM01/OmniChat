@@ -7,7 +7,8 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import android.widget.ArrayAdapter
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -17,13 +18,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.MainActivity
 import com.example.R
 import com.example.data.model.ModelEntity
+import com.example.data.model.ProviderEntity
 import com.example.data.presets.ProviderPreset
 import com.example.databinding.DialogEditModelBinding
 import com.example.databinding.FragmentModelsBinding
 import com.example.ui.adapter.ModelAdapter
+import com.example.ui.util.ModernModalHelper
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.ui.viewmodel.ModelFilter
 import com.example.ui.viewmodel.ModelsViewModel
+import com.google.android.material.chip.Chip
 import kotlinx.coroutines.launch
 
 class ModelsFragment : Fragment() {
@@ -35,6 +39,7 @@ class ModelsFragment : Fragment() {
     private val chatViewModel: ChatViewModel by activityViewModels()
 
     private lateinit var modelAdapter: ModelAdapter
+    private var dynamicProviderChipIds = mutableListOf<Int>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -51,7 +56,7 @@ class ModelsFragment : Fragment() {
         modelAdapter = ModelAdapter(
             onSelect = { model ->
                 chatViewModel.setActiveModel(model)
-                Toast.makeText(requireContext(), "Selected: ${model.displayName}", Toast.LENGTH_SHORT).show()
+                ModernModalHelper.showSnackbar(binding.root, "Selected: ${model.displayName}", isSuccess = true)
                 (activity as? MainActivity)?.switchToChatTab()
             },
             onFavoriteToggle = { model ->
@@ -72,39 +77,46 @@ class ModelsFragment : Fragment() {
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        binding.chipGroupFilters.setOnCheckedStateChangeListener { _, checkedIds ->
-            when {
-                checkedIds.contains(R.id.chip_openai) -> {
-                    modelsViewModel.selectedProviderId.value = ProviderPreset.PROVIDER_ID_OPENAI
+        binding.chipGroupFilters.setOnCheckedStateChangeListener { group, checkedIds ->
+            if (checkedIds.isEmpty()) {
+                modelsViewModel.selectedProviderId.value = null
+                modelsViewModel.selectedFilter.value = ModelFilter.ALL
+                return@setOnCheckedStateChangeListener
+            }
+
+            val checkedId = checkedIds.first()
+            when (checkedId) {
+                R.id.chip_all -> {
+                    modelsViewModel.selectedProviderId.value = null
                     modelsViewModel.selectedFilter.value = ModelFilter.ALL
                 }
-                checkedIds.contains(R.id.chip_anthropic) -> {
-                    modelsViewModel.selectedProviderId.value = ProviderPreset.PROVIDER_ID_ANTHROPIC
-                    modelsViewModel.selectedFilter.value = ModelFilter.ALL
-                }
-                checkedIds.contains(R.id.chip_deepseek) -> {
-                    modelsViewModel.selectedProviderId.value = ProviderPreset.PROVIDER_ID_DEEPSEEK
-                    modelsViewModel.selectedFilter.value = ModelFilter.ALL
-                }
-                checkedIds.contains(R.id.chip_gemini) -> {
-                    modelsViewModel.selectedProviderId.value = ProviderPreset.PROVIDER_ID_GEMINI
-                    modelsViewModel.selectedFilter.value = ModelFilter.ALL
-                }
-                checkedIds.contains(R.id.chip_favorites) -> {
+                R.id.chip_favorites -> {
                     modelsViewModel.selectedProviderId.value = null
                     modelsViewModel.selectedFilter.value = ModelFilter.FAVORITES
                 }
-                checkedIds.contains(R.id.chip_reasoning) -> {
+                R.id.chip_custom -> {
+                    modelsViewModel.selectedProviderId.value = null
+                    modelsViewModel.selectedFilter.value = ModelFilter.CUSTOM
+                }
+                R.id.chip_reasoning -> {
                     modelsViewModel.selectedProviderId.value = null
                     modelsViewModel.selectedFilter.value = ModelFilter.REASONING
                 }
-                checkedIds.contains(R.id.chip_vision) -> {
+                R.id.chip_vision -> {
                     modelsViewModel.selectedProviderId.value = null
                     modelsViewModel.selectedFilter.value = ModelFilter.VISION
                 }
                 else -> {
-                    modelsViewModel.selectedProviderId.value = null
-                    modelsViewModel.selectedFilter.value = ModelFilter.ALL
+                    // Check if it's a dynamic provider chip
+                    val chip = group.findViewById<Chip>(checkedId)
+                    val providerId = chip?.tag as? String
+                    if (providerId != null) {
+                        modelsViewModel.selectedProviderId.value = providerId
+                        modelsViewModel.selectedFilter.value = ModelFilter.ALL
+                    } else {
+                        modelsViewModel.selectedProviderId.value = null
+                        modelsViewModel.selectedFilter.value = ModelFilter.ALL
+                    }
                 }
             }
         }
@@ -115,10 +127,56 @@ class ModelsFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                modelsViewModel.filteredModels.collect { list ->
-                    modelAdapter.submitList(list)
+                launch {
+                    modelsViewModel.filteredModels.collect { list ->
+                        modelAdapter.submitList(list)
+                    }
+                }
+
+                launch {
+                    modelsViewModel.allProviders.collect { providers ->
+                        updateDynamicProviderChips(providers)
+                    }
                 }
             }
+        }
+    }
+
+    private fun updateDynamicProviderChips(providers: List<ProviderEntity>) {
+        val chipGroup = binding.chipGroupFilters
+
+        // Remove previously added dynamic provider chips
+        for (id in dynamicProviderChipIds) {
+            val view = chipGroup.findViewById<View>(id)
+            if (view != null) {
+                chipGroup.removeView(view)
+            }
+        }
+        dynamicProviderChipIds.clear()
+
+        // Add chip for each provider
+        for (provider in providers) {
+            val chip = Chip(requireContext()).apply {
+                id = View.generateViewId()
+                text = provider.name
+                tag = provider.id
+                isCheckable = true
+                isClickable = true
+
+                val iconRes = when (provider.id) {
+                    ProviderPreset.PROVIDER_ID_OPENAI -> R.drawable.ic_brand_openai
+                    ProviderPreset.PROVIDER_ID_ANTHROPIC -> R.drawable.ic_brand_anthropic
+                    ProviderPreset.PROVIDER_ID_DEEPSEEK -> R.drawable.ic_brand_deepseek
+                    ProviderPreset.PROVIDER_ID_GEMINI -> R.drawable.ic_brand_gemini
+                    else -> R.drawable.ic_sparkle
+                }
+                setChipIconResource(iconRes)
+                isChipIconVisible = true
+                chipIconSize = 18f * resources.displayMetrics.density
+            }
+
+            chipGroup.addView(chip)
+            dynamicProviderChipIds.add(chip.id)
         }
     }
 
@@ -128,6 +186,17 @@ class ModelsFragment : Fragment() {
             .setView(dialogBinding.root)
             .create()
 
+        val providers = modelsViewModel.allProviders.value
+        val providerNames = providers.map { it.name }
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, providerNames)
+        dialogBinding.actvProvider.setAdapter(adapter)
+
+        val activeProv = chatViewModel.activeProvider.value
+        val defaultIndex = providers.indexOfFirst { it.id == activeProv?.id }.coerceAtLeast(0)
+        if (providers.isNotEmpty()) {
+            dialogBinding.actvProvider.setText(providers[defaultIndex].name, false)
+        }
+
         dialogBinding.btnCancel.setOnClickListener { dialog.dismiss() }
 
         dialogBinding.btnSave.setOnClickListener {
@@ -136,17 +205,21 @@ class ModelsFragment : Fragment() {
             val contextWin = dialogBinding.etContextWindow.text.toString().toIntOrNull() ?: 128000
 
             if (modelId.isBlank()) {
-                Toast.makeText(requireContext(), "Please enter a Model ID", Toast.LENGTH_SHORT).show()
+                ModernModalHelper.showSnackbar(binding.root, "Please enter a Model ID", isSuccess = false)
                 return@setOnClickListener
             }
 
-            val currentProviderId = chatViewModel.activeProvider.value?.id ?: ProviderPreset.PROVIDER_ID_OPENAI
+            val selectedName = dialogBinding.actvProvider.text.toString()
+            val selectedProvider = providers.find { it.name == selectedName }
+                ?: providers.firstOrNull()
+            val targetProviderId = selectedProvider?.id ?: ProviderPreset.PROVIDER_ID_OPENAI
+
             val newModel = ModelEntity(
-                id = "$currentProviderId::$modelId",
+                id = "$targetProviderId::$modelId",
                 modelId = modelId,
-                providerId = currentProviderId,
+                providerId = targetProviderId,
                 displayName = displayName,
-                description = "Custom model",
+                description = "Custom model (${selectedProvider?.name ?: "Custom"})",
                 contextWindow = contextWin,
                 supportsVision = dialogBinding.switchVision.isChecked,
                 supportsReasoning = dialogBinding.switchReasoning.isChecked,
@@ -159,9 +232,10 @@ class ModelsFragment : Fragment() {
             modelsViewModel.saveModel(newModel)
             chatViewModel.setActiveModel(newModel)
             dialog.dismiss()
-            Toast.makeText(requireContext(), "Custom model saved!", Toast.LENGTH_SHORT).show()
+            ModernModalHelper.showSnackbar(binding.root, "Custom model \"$displayName\" saved!", isSuccess = true)
         }
 
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
     }
 

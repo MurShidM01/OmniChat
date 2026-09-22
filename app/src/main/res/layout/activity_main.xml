@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/main_coordinator"
+    android:id="@+id/root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:orientation="vertical"
+    android:background="?android:colorBackground">
 
+    <!-- Edge-to-Edge AppBar (Top status bar color matches colorSurface) -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/app_bar"
         android:layout_width="match_parent"
@@ -18,51 +20,64 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            app:contentInsetStart="16dp"
+            app:contentInsetEnd="12dp"
             app:title="OmniChat"
             app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium"
             app:titleTextColor="?attr/colorOnSurface">
 
-            <!-- Active Model Selector Pill in Toolbar -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_model_selector"
-                style="@style/Widget.Material3.Button.TonalButton"
+            <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_gravity="center_vertical|end"
-                android:layout_marginEnd="8dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:text="Select Model"
-                android:textSize="12sp"
-                app:icon="@drawable/ic_sparkle"
-                app:iconSize="14dp" />
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|center_vertical"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <!-- Technical Diagnostics Action Icon -->
-            <ImageButton
-                android:id="@+id/btn_diagnostics"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_gravity="center_vertical|end"
-                android:layout_marginEnd="4dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Diagnostics"
-                android:src="@drawable/ic_speed"
-                app:tint="?attr/colorOnSurfaceVariant" />
+                <!-- Active Model Selector Pill in Toolbar -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_model_selector"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="6dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="Select Model"
+                    android:textSize="12sp"
+                    app:cornerRadius="18dp"
+                    app:elevation="0dp"
+                    app:icon="@drawable/ic_sparkle"
+                    app:iconSize="14dp"
+                    app:strokeColor="?attr/colorOutline"
+                    app:strokeWidth="1dp" />
 
-            <!-- New Chat Action Icon -->
-            <ImageButton
-                android:id="@+id/btn_new_chat"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_gravity="center_vertical|end"
-                android:layout_marginEnd="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="New Chat"
-                android:src="@drawable/ic_add"
-                app:tint="?attr/colorOnSurface" />
+                <!-- Technical Diagnostics Action Icon -->
+                <ImageButton
+                    android:id="@+id/btn_diagnostics"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="2dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Diagnostics"
+                    android:src="@drawable/ic_speed"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+                <!-- New Chat Action Icon -->
+                <ImageButton
+                    android:id="@+id/btn_new_chat"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="New Chat"
+                    android:src="@drawable/ic_add"
+                    app:tint="?attr/colorOnSurface" />
+
+            </LinearLayout>
 
         </com.google.android.material.appbar.MaterialToolbar>
 
+        <!-- 1dp Tailwind border line -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -70,23 +85,38 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- Main Fragment Content Area: bounded cleanly without hiding FABs -->
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginBottom="56dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottom_nav"
+    <!-- Edge-to-Edge Bottom Navigation Container -->
+    <LinearLayout
+        android:id="@+id/bottom_nav_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:background="?attr/colorSurface"
-        app:elevation="8dp"
-        app:itemIconTint="@color/brand_primary"
-        app:itemTextColor="@color/brand_primary"
-        app:labelVisibilityMode="labeled"
-        app:menu="@menu/bottom_nav_menu" />
+        android:orientation="vertical"
+        android:background="?attr/colorSurface">
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorOutline" />
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottom_nav"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            app:elevation="0dp"
+            app:itemIconTint="@color/nav_item_selector"
+            app:itemTextColor="@color/nav_item_selector"
+            app:itemActiveIndicatorStyle="@style/CustomBottomNavIndicator"
+            app:labelVisibilityMode="labeled"
+            app:menu="@menu/bottom_nav_menu" />
+
+    </LinearLayout>
+
+</LinearLayout>

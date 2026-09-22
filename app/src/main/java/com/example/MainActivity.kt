@@ -43,10 +43,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // Window Insets handling for edge-to-edge
-        ViewCompat.setOnApplyWindowInsetsListener(binding.mainCoordinator) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(0, systemBars.top, 0, 0)
-            binding.bottomNav.setPadding(0, 0, 0, systemBars.bottom)
+            binding.appBar.setPadding(0, systemBars.top, 0, 0)
+            binding.bottomNavContainer.setPadding(0, 0, 0, systemBars.bottom)
             insets
         }
 
@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnModelSelector.setOnClickListener {
-            showQuickModelSelector()
+            switchToModelsTab()
         }
 
         binding.btnDiagnostics.setOnClickListener {
@@ -130,40 +130,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showQuickModelSelector() {
-        val models = modelsViewModel.rawModels.value
-        if (models.isEmpty()) {
-            AlertDialog.Builder(this)
-                .setTitle("No Models Available")
-                .setMessage("Add a custom model or fetch models from a configured provider first.")
-                .setPositiveButton("Go to Providers") { _, _ ->
-                    binding.bottomNav.selectedItemId = R.id.nav_providers
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-            return
-        }
-
-        val names = models.map { "${it.displayName} (${it.modelId})" }.toTypedArray()
-        val currentModel = chatViewModel.activeModel.value
-        val currentIndex = models.indexOfFirst { it.id == currentModel?.id }.coerceAtLeast(0)
-
-        AlertDialog.Builder(this)
-            .setTitle("Switch Active Model")
-            .setSingleChoiceItems(names, currentIndex) { dialog, which ->
-                chatViewModel.setActiveModel(models[which])
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
     private fun showDiagnosticsDialog() {
         val record = NetworkDiagnostics.getLastRecord()
         val dialogBinding = DialogDiagnosticsBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogBinding.root)
             .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         if (record != null) {
             val headersStr = record.sanitizedHeaders.entries.joinToString("\n") { "  ${it.key}: ${it.value}" }

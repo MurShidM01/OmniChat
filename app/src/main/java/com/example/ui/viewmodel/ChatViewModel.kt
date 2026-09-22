@@ -122,8 +122,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setActiveModel(model: ModelEntity) {
         _activeModel.value = model
-        _activeConversation.value?.let { conv ->
-            viewModelScope.launch {
+        viewModelScope.launch {
+            repository.getProviderById(model.providerId)?.let { p ->
+                _activeProvider.value = p
+            }
+            _activeConversation.value?.let { conv ->
                 repository.updateConversationModel(conv.id, model.providerId, model.modelId)
             }
         }

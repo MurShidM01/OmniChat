@@ -32,6 +32,7 @@ import com.example.network.ConnectionTestResult
 import com.example.network.NetworkResult
 import com.example.security.KeystoreSecretManager
 import com.example.ui.adapter.ProviderAdapterUi
+import com.example.ui.util.ModernModalHelper
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.ui.viewmodel.ProvidersViewModel
 import kotlinx.coroutines.launch
@@ -200,57 +201,67 @@ class ProvidersFragment : Fragment() {
 
             providersViewModel.saveProvider(updatedProvider, plainApiKey = key)
             dialog.dismiss()
-            Toast.makeText(requireContext(), "$providerTitle configured & enabled!", Toast.LENGTH_SHORT).show()
+            ModernModalHelper.showSnackbar(binding.root, "$providerTitle configured & enabled!", isSuccess = true)
         }
 
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
     }
 
     private fun testProviderConnection(provider: ProviderEntity) {
-        Toast.makeText(requireContext(), "Testing connection to ${provider.name}...", Toast.LENGTH_SHORT).show()
+        ModernModalHelper.showSnackbar(binding.root, "Testing connection to ${provider.name}...")
         providersViewModel.testProvider(provider, null) { result: ConnectionTestResult ->
             if (result.isSuccess) {
                 providerAdapterUi.setLatency(provider.id, result.latencyMs)
             }
-            AlertDialog.Builder(requireContext())
-                .setTitle(if (result.isSuccess) "Connection Successful" else "Connection Failed")
-                .setIcon(if (result.isSuccess) R.drawable.ic_check else R.drawable.ic_error)
-                .setMessage(
-                    "${result.message}\nLatency: ${result.latencyMs}ms" +
-                            if (result.discoveredModelsCount > 0) "\nDiscovered models: ${result.discoveredModelsCount}" else ""
-                )
-                .setPositiveButton("OK", null)
-                .show()
+            ModernModalHelper.showModal(
+                context = requireContext(),
+                title = if (result.isSuccess) "Connection Successful" else "Connection Failed",
+                message = "${result.message}\nLatency: ${result.latencyMs}ms" +
+                        if (result.discoveredModelsCount > 0) "\nDiscovered models: ${result.discoveredModelsCount}" else "",
+                type = if (result.isSuccess) ModernModalHelper.ModalType.SUCCESS else ModernModalHelper.ModalType.DANGER,
+                positiveButtonText = "OK"
+            )
         }
     }
 
     private fun fetchProviderModels(provider: ProviderEntity) {
-        Toast.makeText(requireContext(), "Syncing models from ${provider.name}...", Toast.LENGTH_SHORT).show()
+        ModernModalHelper.showSnackbar(binding.root, "Syncing models from ${provider.name}...")
         providersViewModel.fetchModels(provider) { result ->
             when (result) {
                 is NetworkResult.Success -> {
-                    Toast.makeText(
-                        requireContext(),
+                    ModernModalHelper.showSnackbar(
+                        binding.root,
                         "Loaded ${result.data.size} models from ${provider.name}!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                        isSuccess = true
+                    )
                 }
                 is NetworkResult.Error -> {
-                    Toast.makeText(requireContext(), "Error: ${result.message}", Toast.LENGTH_LONG).show()
+                    ModernModalHelper.showModal(
+                        context = requireContext(),
+                        title = "Sync Failed",
+                        message = result.message ?: "Failed to sync models",
+                        type = ModernModalHelper.ModalType.DANGER,
+                        positiveButtonText = "OK"
+                    )
                 }
             }
         }
     }
 
     private fun showDeleteConfirmDialog(provider: ProviderEntity) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Delete Provider?")
-            .setMessage("Are you sure you want to delete \"${provider.name}\"? Discovered models will also be removed.")
-            .setPositiveButton("Delete") { _, _ ->
+        ModernModalHelper.showModal(
+            context = requireContext(),
+            title = "Delete Provider?",
+            message = "Are you sure you want to delete \"${provider.name}\"? Discovered models will also be removed.",
+            type = ModernModalHelper.ModalType.DANGER,
+            positiveButtonText = "Delete",
+            negativeButtonText = "Cancel",
+            onPositiveClick = {
                 providersViewModel.deleteProvider(provider.id)
+                ModernModalHelper.showSnackbar(binding.root, "Deleted ${provider.name}", isSuccess = true)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
     }
 
     private fun showEditProviderDialog(existing: ProviderEntity?) {
@@ -327,7 +338,7 @@ class ProvidersFragment : Fragment() {
             val selectedCompat = compatTypes[dialogBinding.spinnerCompatibility.selectedItemPosition]
 
             if (name.isBlank() || baseUrl.isBlank()) {
-                Toast.makeText(requireContext(), "Name and Base URL are required", Toast.LENGTH_SHORT).show()
+                ModernModalHelper.showSnackbar(binding.root, "Name and Base URL are required", isSuccess = false)
                 return@setOnClickListener
             }
 
@@ -364,9 +375,10 @@ class ProvidersFragment : Fragment() {
 
             providersViewModel.saveProvider(providerToSave, plainApiKey = apiKey)
             dialog.dismiss()
-            Toast.makeText(requireContext(), "Provider saved securely!", Toast.LENGTH_SHORT).show()
+            ModernModalHelper.showSnackbar(binding.root, "Provider \"$name\" saved securely!", isSuccess = true)
         }
 
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
     }
 

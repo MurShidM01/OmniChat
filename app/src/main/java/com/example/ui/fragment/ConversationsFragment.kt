@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.MainActivity
 import com.example.databinding.FragmentConversationsBinding
 import com.example.ui.adapter.ConversationAdapter
+import com.example.ui.util.ModernModalHelper
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.ui.viewmodel.ConversationsViewModel
 import kotlinx.coroutines.launch
@@ -87,17 +88,21 @@ class ConversationsFragment : Fragment() {
     }
 
     private fun showDeleteConfirmDialog(id: String, title: String) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Delete Conversation?")
-            .setMessage("Are you sure you want to delete \"$title\"? This cannot be undone.")
-            .setPositiveButton("Delete") { _, _ ->
+        ModernModalHelper.showModal(
+            context = requireContext(),
+            title = "Delete Conversation?",
+            message = "Are you sure you want to delete \"$title\"? This cannot be undone.",
+            type = ModernModalHelper.ModalType.DANGER,
+            positiveButtonText = "Delete",
+            negativeButtonText = "Cancel",
+            onPositiveClick = {
                 conversationsViewModel.deleteConversation(id)
                 if (chatViewModel.activeConversationId.value == id) {
                     chatViewModel.loadConversation(null)
                 }
+                ModernModalHelper.showSnackbar(binding.root, "Conversation deleted", isSuccess = true)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
     }
 
     override fun onDestroyView() {

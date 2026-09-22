@@ -17,10 +17,18 @@
         <item name="colorOnSurfaceVariant">@color/text_secondary_light</item>
         <item name="colorOutline">@color/border_light</item>
 
+        <!-- Flat Tailwind Theme (Zero Elevation & Shadow) -->
+        <item name="elevationOverlayEnabled">false</item>
+
         <!-- Status & Navigation Bar -->
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="CustomBottomNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">#1A2563EB</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 </resources>

@@ -11,7 +11,8 @@ enum class AuthType(val displayName: String) {
     BEARER_TOKEN("Bearer Token (Authorization: Bearer <key>)"),
     API_KEY_HEADER("API Key Header (e.g. x-api-key)"),
     QUERY_PARAM("Query Parameter (?key=<key>)"),
-    CUSTOM_HEADER("Custom Header")
+    CUSTOM_HEADER("Custom Header"),
+    NONE("No Auth (Local / Open)")
 }
 
 enum class MessageRole {

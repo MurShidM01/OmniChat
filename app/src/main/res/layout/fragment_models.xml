@@ -6,126 +6,107 @@
     android:layout_height="match_parent"
     android:background="?android:colorBackground">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_view_models"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="14dp">
+        android:fillViewport="true">
 
-        <!-- Search Bar -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/til_search"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Search official models..."
-            app:boxCornerRadiusBottomEnd="16dp"
-            app:boxCornerRadiusBottomStart="16dp"
-            app:boxCornerRadiusTopEnd="16dp"
-            app:boxCornerRadiusTopStart="16dp"
-            app:startIconDrawable="@drawable/ic_search">
+            android:orientation="vertical"
+            android:padding="14dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_search"
+            <!-- Search Bar (Scrolls with page) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_search"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
-                android:maxLines="1" />
+                android:hint="Search models..."
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
+                app:boxStrokeColor="@color/brand_primary"
+                app:startIconDrawable="@drawable/ic_search">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_search"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:maxLines="1" />
 
-        <!-- Filter Chips (Horizontal Scrolling) -->
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:scrollbars="none">
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chip_group_filters"
-                android:layout_width="wrap_content"
+            <!-- Dynamic Filter Chips (Scrolls with page) -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:singleSelection="true">
+                android:layout_marginTop="10dp"
+                android:scrollbars="none">
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_all"
-                    style="@style/Widget.Material3.Chip.Filter"
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_group_filters"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:checked="true"
-                    android:text="All" />
+                    app:singleSelection="true">
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_openai"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="OpenAI"
-                    app:chipIcon="@drawable/ic_brand_openai"
-                    app:chipIconSize="16dp" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_all"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="All" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_anthropic"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Anthropic"
-                    app:chipIcon="@drawable/ic_brand_anthropic"
-                    app:chipIconSize="16dp" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_favorites"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⭐ Favorites" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_deepseek"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="DeepSeek"
-                    app:chipIcon="@drawable/ic_brand_deepseek"
-                    app:chipIconSize="16dp" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_custom"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⚡ Custom Models" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_gemini"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Gemini"
-                    app:chipIcon="@drawable/ic_brand_gemini"
-                    app:chipIconSize="16dp" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_reasoning"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🧠 Reasoning" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_reasoning"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🧠 Reasoning" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_vision"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="👁 Vision" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_vision"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="👁 Vision" />
+                </com.google.android.material.chip.ChipGroup>
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chip_favorites"
-                    style="@style/Widget.Material3.Chip.Filter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⭐ Favorites" />
+            </HorizontalScrollView>
 
-            </com.google.android.material.chip.ChipGroup>
+            <!-- Models RecyclerView (Nested scrolling disabled to scroll with parent) -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_models"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false"
+                android:clipToPadding="false"
+                android:paddingBottom="80dp" />
 
-        </HorizontalScrollView>
+        </LinearLayout>
 
-        <!-- Models RecyclerView -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_models"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="8dp"
-            android:clipToPadding="false"
-            android:paddingBottom="72dp" />
-
-    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fab_add_model"
@@ -133,7 +114,13 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
+        android:backgroundTint="@color/brand_primary"
         android:text="Add Model"
-        app:icon="@drawable/ic_add" />
+        android:textColor="#FFFFFF"
+        app:elevation="0dp"
+        app:hoveredFocusedTranslationZ="0dp"
+        app:icon="@drawable/ic_add"
+        app:iconTint="#FFFFFF"
+        app:pressedTranslationZ="0dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
