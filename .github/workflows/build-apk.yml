@@ -1,0 +1,685 @@
+name: OmniChat Android CI/CD
+
+on:
+  # Build every commit pushed to main.
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+  # Validate every pull request targeting main.
+  pull_request:
+    branches:
+      - main
+
+  # Allow manual builds without creating a Release.
+  workflow_dispatch:
+
+# Needed only for tag-based GitHub Releases.
+permissions:
+  contents: write
+  pull-requests: read
+
+# If another build of the same branch/PR is already running,
+# cancel it and keep the newest commit.
+concurrency:
+  group: omnichat-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+  GRADLE_VERSION: "9.3.1"
+
+  # Main APK output locations.
+  DEBUG_APK: "app/build/outputs/apk/debug/app-debug.apk"
+  RELEASE_APK: "app/build/outputs/apk/release/app-release.apk"
+  RELEASE_AAB: "app/build/outputs/bundle/release/app-release.aab"
+
+jobs:
+  build:
+    name: Build OmniChat
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------
+      # 1. Checkout source
+      # ------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ------------------------------------------------------------
+      # 2. Java
+      # ------------------------------------------------------------
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      # ------------------------------------------------------------
+      # 3. Gradle
+      # ------------------------------------------------------------
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      # ------------------------------------------------------------
+      # 4. Environment information
+      # ------------------------------------------------------------
+      - name: Show build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Java:"
+          java -version
+
+          echo ""
+          echo "Gradle:"
+          gradle --version
+
+          echo ""
+          echo "Git:"
+          git --version
+
+          echo ""
+          echo "Runner:"
+          echo "${RUNNER_OS}"
+
+      # ------------------------------------------------------------
+      # 5. Generate debug keystore
+      #
+      # Your current app/build.gradle.kts explicitly expects:
+      #   ${rootDir}/debug.keystore
+      #
+      # with:
+      #   alias = androiddebugkey
+      #   storePassword = android
+      #   keyPassword = android
+      # ------------------------------------------------------------
+      - name: Generate debug keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair \
+              -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          test -f debug.keystore
+
+      # ------------------------------------------------------------
+      # 6. Determine automatic build/version numbers
+      #
+      # github.run_number:
+      #   - automatically increases for every workflow run
+      #   - gives every CI build a unique versionCode
+      #
+      # Tag:
+      #   v0.1.0 -> versionName 0.1.0
+      #
+      # Main/PR:
+      #   0.0.0-ci.<run_number>
+      # ------------------------------------------------------------
+      - name: Calculate build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION_CODE="${GITHUB_RUN_NUMBER}"
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
+
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "ERROR: Release tags must look like v0.1.0"
+              echo "Received: ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+
+            IS_RELEASE="true"
+          else
+            VERSION_NAME="0.0.0-ci.${GITHUB_RUN_NUMBER}"
+            IS_RELEASE="false"
+          fi
+
+          echo "version_code=${VERSION_CODE}" >> "${GITHUB_OUTPUT}"
+          echo "version_name=${VERSION_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "is_release=${IS_RELEASE}" >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Build Metadata"
+            echo ""
+            echo "| Property | Value |"
+            echo "|---|---|"
+            echo "| Version Name | \`${VERSION_NAME}\` |"
+            echo "| Version Code | \`${VERSION_CODE}\` |"
+            echo "| Git Ref | \`${GITHUB_REF_NAME}\` |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Release Tag | \`${IS_RELEASE}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      # ------------------------------------------------------------
+      # 7. Apply automatic Android versioning
+      #
+      # Your project currently contains versionCode/versionName
+      # directly in app/build.gradle.kts.
+      #
+      # We temporarily replace those values in the CI workspace.
+      # Nothing is committed back to the repository.
+      # ------------------------------------------------------------
+      - name: Apply CI version
+        shell: bash
+        env:
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+        run: |
+          set -euo pipefail
+
+          test -f app/build.gradle.kts
+
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("app/build.gradle.kts")
+          text = path.read_text()
+
+          version_code = os.environ["VERSION_CODE"]
+          version_name = os.environ["VERSION_NAME"]
+
+          # Replace simple Kotlin DSL assignments.
+          new_text, code_count = re.subn(
+              r'(\bversionCode\s*=\s*)\d+',
+              rf'\g<1>{version_code}',
+              text,
+              count=1,
+          )
+
+          new_text, name_count = re.subn(
+              r'(\bversionName\s*=\s*)"[^"]*"',
+              rf'\g<1>"{version_name}"',
+              new_text,
+              count=1,
+          )
+
+          if code_count != 1:
+              raise SystemExit(
+                  "Could not find exactly one versionCode assignment "
+                  "in app/build.gradle.kts"
+              )
+
+          if name_count != 1:
+              raise SystemExit(
+                  "Could not find exactly one versionName assignment "
+                  "in app/build.gradle.kts"
+              )
+
+          path.write_text(new_text)
+          PY
+
+          echo "Applied:"
+          grep -nE 'versionCode|versionName' app/build.gradle.kts | head -20
+
+      # ------------------------------------------------------------
+      # 8. Prepare release signing
+      #
+      # PROFESSIONAL/PERSISTENT MODE:
+      #
+      # Add these GitHub repository secrets:
+      #
+      # RELEASE_KEYSTORE_B64
+      # RELEASE_STORE_PASSWORD
+      # RELEASE_KEY_PASSWORD
+      #
+      # The existing Gradle file expects alias: "upload".
+      #
+      # FALLBACK MODE:
+      #
+      # If secrets are not configured, CI generates a temporary
+      # upload keystore automatically.
+      #
+      # WARNING:
+      # A newly generated key changes the signing identity.
+      # Such an APK/AAB is NOT suitable for updating an existing
+      # Play Store application. For Play Store production, use
+      # the persistent GitHub secrets above.
+      # ------------------------------------------------------------
+      - name: Prepare release signing
+        id: signing
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          KEYSTORE_PATH="${RUNNER_TEMP}/omnichat-upload.jks"
+
+          if [[ -n "${RELEASE_KEYSTORE_B64}" \
+             && -n "${RELEASE_STORE_PASSWORD}" \
+             && -n "${RELEASE_KEY_PASSWORD}" ]]; then
+
+            echo "${RELEASE_KEYSTORE_B64}" | base64 --decode > "${KEYSTORE_PATH}"
+
+            echo "signing_mode=persistent" >> "${GITHUB_OUTPUT}"
+
+            echo "Persistent release keystore loaded."
+
+          else
+
+            keytool -genkeypair \
+              -v \
+              -keystore "${KEYSTORE_PATH}" \
+              -storepass "temporary-store-password" \
+              -alias upload \
+              -keypass "temporary-key-password" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=OmniChat CI Upload,O=OmniChat,C=PK"
+
+            echo "signing_mode=generated" >> "${GITHUB_OUTPUT}"
+
+            echo "::warning::Persistent release signing secrets are not configured."
+            echo "::warning::A temporary signing key was generated. This build is NOT suitable for Play Store updates."
+          fi
+
+          # Your app/build.gradle.kts expects these exact environment names.
+          echo "KEYSTORE_PATH=${KEYSTORE_PATH}" >> "${GITHUB_ENV}"
+
+          if [[ -n "${RELEASE_KEYSTORE_B64}" \
+             && -n "${RELEASE_STORE_PASSWORD}" \
+             && -n "${RELEASE_KEY_PASSWORD}" ]]; then
+
+            echo "STORE_PASSWORD=${RELEASE_STORE_PASSWORD}" >> "${GITHUB_ENV}"
+            echo "KEY_PASSWORD=${RELEASE_KEY_PASSWORD}" >> "${GITHUB_ENV}"
+
+          else
+
+            echo "STORE_PASSWORD=temporary-store-password" >> "${GITHUB_ENV}"
+            echo "KEY_PASSWORD=temporary-key-password" >> "${GITHUB_ENV}"
+
+          fi
+
+      # ------------------------------------------------------------
+      # 9. Export signing certificate/public key
+      #
+      # This is safe to publish. It contains the public certificate,
+      # NOT the private signing key.
+      # ------------------------------------------------------------
+      - name: Export signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts
+
+          keytool -exportcert \
+            -rfc \
+            -keystore "${KEYSTORE_PATH}" \
+            -storepass "${STORE_PASSWORD}" \
+            -alias upload \
+            -file artifacts/OmniChat-signing-certificate.pem
+
+          test -s artifacts/OmniChat-signing-certificate.pem
+
+      # ------------------------------------------------------------
+      # 10. Gradle validation
+      # ------------------------------------------------------------
+      - name: Validate Gradle configuration
+        shell: bash
+        env:
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
+        run: |
+          set -euo pipefail
+
+          gradle \
+            tasks \
+            --all \
+            --no-daemon
+
+      # ------------------------------------------------------------
+      # 11. Build Debug APK
+      #
+      # Every successful push/commit gets this artifact.
+      # ------------------------------------------------------------
+      - name: Build Debug APK
+        shell: bash
+        env:
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
+        run: |
+          set -euo pipefail
+
+          gradle \
+            :app:assembleDebug \
+            --stacktrace \
+            --no-daemon
+
+          test -f "${DEBUG_APK}"
+
+      # ------------------------------------------------------------
+      # 12. Build Release APK + AAB
+      #
+      # PRs only need validation/debug artifacts.
+      #
+      # Pushes to main and version tags build release artifacts.
+      # Releases are still created ONLY for v* tags.
+      # ------------------------------------------------------------
+      - name: Build Release APK and AAB
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
+        run: |
+          set -euo pipefail
+
+          gradle \
+            :app:assembleRelease \
+            :app:bundleRelease \
+            --stacktrace \
+            --no-daemon
+
+          test -f "${RELEASE_APK}"
+          test -f "${RELEASE_AAB}"
+
+      # ------------------------------------------------------------
+      # 13. Collect output files
+      # ------------------------------------------------------------
+      - name: Prepare artifacts
+        shell: bash
+        env:
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          SIGNING_MODE: ${{ steps.signing.outputs.signing_mode }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts
+
+          cp "${DEBUG_APK}" \
+            "artifacts/OmniChat-${VERSION_NAME}-${VERSION_CODE}-debug.apk"
+
+          if [[ -f "${RELEASE_APK}" ]]; then
+            cp "${RELEASE_APK}" \
+              "artifacts/OmniChat-${VERSION_NAME}-${VERSION_CODE}-release.apk"
+          fi
+
+          if [[ -f "${RELEASE_AAB}" ]]; then
+            cp "${RELEASE_AAB}" \
+              "artifacts/OmniChat-${VERSION_NAME}-${VERSION_CODE}-release.aab"
+          fi
+
+          cat > artifacts/build-info.txt <<EOF
+          OmniChat CI Build
+
+          Version Name: ${VERSION_NAME}
+          Version Code: ${VERSION_CODE}
+
+          GitHub Run:
+          ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Commit:
+          ${GITHUB_SHA}
+
+          Ref:
+          ${GITHUB_REF_NAME}
+
+          Event:
+          ${GITHUB_EVENT_NAME}
+
+          Signing Mode:
+          ${SIGNING_MODE}
+          EOF
+
+          find artifacts -maxdepth 1 -type f -print
+
+      # ------------------------------------------------------------
+      # 14. SHA256 checksums
+      # ------------------------------------------------------------
+      - name: Generate SHA256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd artifacts
+
+          sha256sum \
+            *.apk \
+            *.aab \
+            > SHA256SUMS.txt
+
+          echo "## SHA256"
+          cat SHA256SUMS.txt
+
+      # ------------------------------------------------------------
+      # 15. Upload Actions artifact
+      #
+      # Available for every successful build:
+      #   - Debug APK
+      #   - Release APK
+      #   - Release AAB
+      #   - SHA256
+      #   - Signing certificate
+      #   - Build information
+      # ------------------------------------------------------------
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: OmniChat-build-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
+      # ------------------------------------------------------------
+      # 16. GitHub Actions summary
+      # ------------------------------------------------------------
+      - name: Build summary
+        if: success()
+        shell: bash
+        env:
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          IS_RELEASE: ${{ steps.meta.outputs.is_release }}
+          SIGNING_MODE: ${{ steps.signing.outputs.signing_mode }}
+        run: |
+          set -euo pipefail
+
+          DEBUG_SIZE="$(du -h "${DEBUG_APK}" | cut -f1)"
+
+          if [[ -f "${RELEASE_APK}" ]]; then
+            RELEASE_APK_SIZE="$(du -h "${RELEASE_APK}" | cut -f1)"
+          else
+            RELEASE_APK_SIZE="N/A"
+          fi
+
+          if [[ -f "${RELEASE_AAB}" ]]; then
+            AAB_SIZE="$(du -h "${RELEASE_AAB}" | cut -f1)"
+          else
+            AAB_SIZE="N/A"
+          fi
+
+          {
+            echo ""
+            echo "## ✅ OmniChat Build Successful"
+            echo ""
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Version | \`${VERSION_NAME}\` |"
+            echo "| Version Code | \`${VERSION_CODE}\` |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Ref | \`${GITHUB_REF_NAME}\` |"
+            echo "| Debug APK | \`${DEBUG_SIZE}\` |"
+            echo "| Release APK | \`${RELEASE_APK_SIZE}\` |"
+            echo "| Release AAB | \`${AAB_SIZE}\` |"
+            echo "| Signing | \`${SIGNING_MODE}\` |"
+            echo ""
+            echo "### Artifacts"
+            echo ""
+            echo "- Debug APK"
+            echo "- Release APK"
+            echo "- Release AAB"
+            echo "- SHA256SUMS.txt"
+            echo "- Signing certificate"
+            echo "- Build information"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      # ------------------------------------------------------------
+      # 17. Create GitHub Release
+      #
+      # IMPORTANT:
+      # This runs ONLY when:
+      #   refs/tags/v*
+      #
+      # Normal main commits NEVER create Releases.
+      # ------------------------------------------------------------
+      - name: Create GitHub Release
+        if: success() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_TAG="${GITHUB_REF_NAME}"
+
+          cat > release-notes.md <<EOF
+          # OmniChat ${RELEASE_TAG}
+
+          Automated Android release generated by GitHub Actions.
+
+          ## Build Information
+
+          - Version: ${VERSION_NAME}
+          - Version Code: ${VERSION_CODE}
+          - Commit: ${GITHUB_SHA}
+          - Workflow Run: ${GITHUB_RUN_NUMBER}
+
+          ## Included Files
+
+          - Debug APK
+          - Signed Release APK
+          - Release AAB
+          - SHA256 checksums
+          - Signing certificate
+          - Build information
+
+          ## Verification
+
+          SHA256 hashes are provided in \`SHA256SUMS.txt\`.
+          EOF
+
+          gh release create "${RELEASE_TAG}" \
+            "artifacts/OmniChat-${VERSION_NAME}-${VERSION_CODE}-debug.apk" \
+            "artifacts/OmniChat-${VERSION_NAME}-${VERSION_CODE}-release.apk" \
+            "artifacts/OmniChat-${VERSION_NAME}-${VERSION_CODE}-release.aab" \
+            "artifacts/SHA256SUMS.txt" \
+            "artifacts/OmniChat-signing-certificate.pem" \
+            "artifacts/build-info.txt" \
+            --title "OmniChat ${RELEASE_TAG}" \
+            --notes-file release-notes.md
+
+      # ------------------------------------------------------------
+      # 18. Failure diagnostics
+      # ------------------------------------------------------------
+      - name: Collect failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+
+          mkdir -p diagnostics
+
+          echo "Collecting diagnostics..."
+
+          gradle --stop || true
+
+          if [ -d "app/build/reports" ]; then
+            cp -R app/build/reports diagnostics/app-build-reports
+          fi
+
+          if [ -d "app/build/outputs" ]; then
+            cp -R app/build/outputs diagnostics/app-build-outputs
+          fi
+
+          if [ -d "build/reports" ]; then
+            cp -R build/reports diagnostics/root-build-reports
+          fi
+
+          if [ -f "settings.gradle.kts" ]; then
+            cp settings.gradle.kts diagnostics/
+          fi
+
+          if [ -f "app/build.gradle.kts" ]; then
+            cp app/build.gradle.kts diagnostics/
+          fi
+
+          {
+            echo "OmniChat CI Failure Diagnostics"
+            echo ""
+            echo "Repository: ${GITHUB_REPOSITORY}"
+            echo "Run ID: ${GITHUB_RUN_ID}"
+            echo "Run Number: ${GITHUB_RUN_NUMBER}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Ref: ${GITHUB_REF_NAME}"
+            echo "Event: ${GITHUB_EVENT_NAME}"
+            echo ""
+            java -version
+            echo ""
+            gradle --version
+          } > diagnostics/environment.txt 2>&1
+
+          find diagnostics -maxdepth 4 -type f -print || true
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: OmniChat-failure-diagnostics-${{ github.run_number }}
+          path: diagnostics/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 6
+
+      # ------------------------------------------------------------
+      # 19. Failure summary
+      # ------------------------------------------------------------
+      - name: Failure summary
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "## ❌ OmniChat Build Failed"
+            echo ""
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Run | \`${GITHUB_RUN_NUMBER}\` |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Ref | \`${GITHUB_REF_NAME}\` |"
+            echo "| Event | \`${GITHUB_EVENT_NAME}\` |"
+            echo ""
+            echo "Failure diagnostics were uploaded as an Actions artifact."
+          } >> "${GITHUB_STEP_SUMMARY}"
